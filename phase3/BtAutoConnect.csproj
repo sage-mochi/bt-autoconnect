@@ -14,6 +14,10 @@
     <RootNamespace>BtAutoConnect</RootNamespace>
     <AssemblyName>bt-autoconnect</AssemblyName>
 
+    <!-- App icon (Explorer, taskbar, Alt-Tab, pinned). The tray icon and the
+         settings window are drawn/loaded separately (IconFactory). -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
+
     <!--
       WinForms is enabled so we can add a NotifyIcon in Phase 3c without
       changing the csproj. Phase 3a doesn't actually use any WinForms types.
