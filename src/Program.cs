@@ -391,139 +391,24 @@ public static class Program
             Console.WriteLine();
         }
 
-        return ForceRemoveDevice(dev, isAdmin) ? 0 : 2;
+        return ForceRemove.Run(dev, isAdmin, ConsoleReport) ? 0 : 2;
     }
 
-    /// <summary>
-    /// Escalate through progressively more forceful removal methods until the
-    /// API confirms the device is gone. Returns true if it's no longer paired.
-    /// </summary>
-    private static bool ForceRemoveDevice(Bluetooth.DeviceStatus dev, bool isAdmin)
+    /// <summary>Render ForceRemove progress to the console with severity colors.</summary>
+    private static void ConsoleReport(ForceRemove.Level level, string msg)
     {
-        ulong  addr   = dev.Address;
-        string macHex = addr.ToString("X12");
-        string name   = string.IsNullOrEmpty(dev.Name) ? "(unnamed)" : dev.Name;
-
-        bool StillPaired() =>
-            Bluetooth.EnumerateDevices().Any(d => d.Address == addr);
-
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"Force-removing '{name}'  [{Bluetooth.FormatAddress(addr)}]");
+        var color = level switch
+        {
+            ForceRemove.Level.Ok   => ConsoleColor.Green,
+            ForceRemove.Level.Warn => ConsoleColor.DarkYellow,
+            ForceRemove.Level.Bad  => ConsoleColor.Red,
+            ForceRemove.Level.Info => ConsoleColor.DarkGray,
+            _                      => ConsoleColor.Gray,
+        };
+        Console.ForegroundColor = color;
+        Console.WriteLine(msg);
         Console.ResetColor();
-        Console.WriteLine();
-
-        // --- Step 1: drop any active service binding ------------------------
-        Gray("  [1/5] Disconnecting active service bindings...");
-        try { Bluetooth.AttemptConnectHid(name, addr, kick: false); } catch { }
-        Thread.Sleep(400);
-
-        // --- Step 2: the standard API (what Settings calls) -----------------
-        Gray("  [2/5] BluetoothRemoveDevice API...");
-        uint rc = Bluetooth.RemoveByAddress(addr);
-        if (rc == 0 && !StillPaired()) { Green("        removed."); return true; }
-        DarkYellow($"        did not stick (rc=0x{rc:X4}). Escalating...");
-
-        // --- Step 3: restart the services that hold the pairing, retry ------
-        if (isAdmin)
-        {
-            Gray("  [3/5] Restarting Bluetooth + Device Association services...");
-            foreach (var svc in new[] { "bthserv", "DeviceAssociationService" })
-            {
-                RunProcess("sc.exe", $"stop {svc}");
-                Thread.Sleep(500);
-                RunProcess("sc.exe", $"start {svc}");
-            }
-            Thread.Sleep(2000);
-            rc = Bluetooth.RemoveByAddress(addr);
-            if (rc == 0 && !StillPaired()) { Green("        removed after service restart."); return true; }
-            DarkYellow($"        still present (rc=0x{rc:X4}).");
-        }
-        else
-        {
-            DarkYellow("  [3/5] Skipped (needs elevation) -- restart of bthserv / DeviceAssociationService.");
-        }
-
-        // --- Step 4: remove the PnP device node(s) for this MAC -------------
-        Gray("  [4/5] Removing PnP device node(s) for this MAC...");
-        var nodes = Bluetooth.FindInstanceIdsByAddress(addr);
-        if (nodes.Count == 0)
-        {
-            DarkGray("        no matching PnP nodes found.");
-        }
-        else if (!isAdmin)
-        {
-            DarkYellow($"        found {nodes.Count} node(s) but removal needs elevation:");
-            foreach (var iid in nodes) DarkGray($"          {iid}");
-        }
-        else
-        {
-            foreach (var iid in nodes)
-            {
-                bool done = RunProcess("pnputil.exe", $"/remove-device \"{iid}\"") == 0;
-                if (done) Green($"        removed {iid}");
-                else      Red  ($"        FAILED  {iid}");
-            }
-            Thread.Sleep(1000);
-            Bluetooth.RemoveByAddress(addr);
-            if (!StillPaired()) { Green("        device is gone."); return true; }
-        }
-
-        // --- Step 5: delete the stale pairing key from the registry --------
-        string regKey = $@"HKLM\SYSTEM\CurrentControlSet\Services\BTHPORT\Parameters\Devices\{macHex}";
-        if (!isAdmin)
-        {
-            DarkYellow("  [5/5] Skipped (needs elevation) -- registry pairing key:");
-            DarkGray($"        {regKey}");
-        }
-        else
-        {
-            Gray("  [5/5] Deleting stale pairing key from registry...");
-            int rrc = RunProcess("reg.exe", $"delete \"{regKey}\" /f");
-            if (rrc == 0) Green("        registry key deleted.");
-            else          DarkGray("        no registry key for this MAC, or it is SYSTEM-owned (a reboot may be needed).");
-        }
-
-        // --- Verdict --------------------------------------------------------
-        Console.WriteLine();
-        if (!StillPaired()) { Green("Device removed."); return true; }
-
-        Red("Device still appears paired.");
-        if (!isAdmin)
-            Yellow("Re-run from an elevated PowerShell/console (Run as administrator) to apply steps 3-5.");
-        else
-            Yellow("A reboot usually clears whatever is left after the node + registry key are gone.");
-        return false;
     }
-
-    /// <summary>Run a console tool silently; returns its exit code (-1 on launch failure).</summary>
-    private static int RunProcess(string file, string args)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo(file, args)
-            {
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-            };
-            using var p = Process.Start(psi);
-            if (p == null) return -1;
-            p.WaitForExit(15000);
-            return p.HasExited ? p.ExitCode : -1;
-        }
-        catch { return -1; }
-    }
-
-    // Small colored-write helpers to keep ForceRemoveDevice readable.
-    private static void Write(ConsoleColor c, string s)
-    { Console.ForegroundColor = c; Console.WriteLine(s); Console.ResetColor(); }
-    private static void Gray(string s)       => Write(ConsoleColor.Gray, s);
-    private static void DarkGray(string s)   => Write(ConsoleColor.DarkGray, s);
-    private static void DarkYellow(string s) => Write(ConsoleColor.DarkYellow, s);
-    private static void Yellow(string s)     => Write(ConsoleColor.Yellow, s);
-    private static void Green(string s)      => Write(ConsoleColor.Green, s);
-    private static void Red(string s)        => Write(ConsoleColor.Red, s);
 
     // -------------------------------------------------------------------------
     // Helpers

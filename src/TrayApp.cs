@@ -273,6 +273,12 @@ public sealed class TrayApp
         connectNow.Click += (_, _) => ConnectNow(dev);
         item.DropDownItems.Add(connectNow);
 
+        item.DropDownItems.Add(new ToolStripSeparator());
+
+        var forceRemove = new ToolStripMenuItem("Force-remove (unpair)…");
+        forceRemove.Click += (_, _) => ForceRemoveDevice(dev);
+        item.DropDownItems.Add(forceRemove);
+
         var kindHint = new ToolStripMenuItem(
             $"Kind: {dev.GuessedKind}   [{Bluetooth.FormatAddress(dev.Address)}]")
         { Enabled = false };
@@ -365,6 +371,122 @@ public sealed class TrayApp
             if (_ui != null) _ui.Post(_ => Show(), null);
             else             Show();
         });
+    }
+
+    /// <summary>
+    /// Force-unpair a stuck device from the tray (the "Remove failed" fix). Tries
+    /// the unprivileged steps in-process first; if that isn't enough and we're not
+    /// elevated, offers to relaunch elevated to run the full escalation.
+    /// </summary>
+    private void ForceRemoveDevice(Bluetooth.DeviceStatus dev)
+    {
+        var confirm = MessageBox.Show(
+            $"Force-remove (unpair) '{dev.Name}'?\n\n" +
+            "Use this when Windows' own \"Remove device\" fails. It unpairs the device " +
+            "(you can pair it again afterwards) and does not change your auto-connect list.",
+            "bt-autoconnect — Force-remove",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (confirm != DialogResult.Yes) return;
+
+        string name = dev.Name;
+        Task.Run(() =>
+        {
+            bool elevated = Bluetooth.IsElevated();
+            bool ok;
+            try
+            {
+                ok = ForceRemove.Run(dev, elevated, (lvl, m) =>
+                {
+                    switch (lvl)
+                    {
+                        case ForceRemove.Level.Ok:   _log.Ok(m);    break;
+                        case ForceRemove.Level.Warn: _log.Warn(m);  break;
+                        case ForceRemove.Level.Bad:  _log.Bad(m);   break;
+                        case ForceRemove.Level.Info: _log.Quiet(m); break;
+                        default:                     _log.Note(m);  break;
+                    }
+                });
+            }
+            catch (Exception ex) { _log.Bad($"{name}: force-remove threw: {ex.Message}"); ok = false; }
+
+            void Done()
+            {
+                if (ok)
+                {
+                    _tray.ShowBalloonTip(4000, "Device removed", $"'{name}' has been unpaired.", ToolTipIcon.Info);
+                    UpdateStatus();
+                }
+                else if (!elevated)
+                {
+                    var er = MessageBox.Show(
+                        $"'{name}' couldn't be removed without administrator rights.\n\nRetry as administrator?",
+                        "bt-autoconnect — Force-remove",
+                        MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    if (er == DialogResult.Yes) RelaunchElevatedForceRemove(dev);
+                }
+                else
+                {
+                    _tray.ShowBalloonTip(6000, "Remove failed",
+                        $"'{name}' could not be removed. A reboot may finish it off.", ToolTipIcon.Warning);
+                }
+            }
+            if (_ui != null) _ui.Post(_ => Done(), null); else Done();
+        });
+    }
+
+    /// <summary>Relaunch ourselves elevated to run the full `-ForceRemove` escalation.</summary>
+    private void RelaunchElevatedForceRemove(Bluetooth.DeviceStatus dev)
+    {
+        string? exe = ResolveExePath();
+        if (exe == null)
+        {
+            _tray.ShowBalloonTip(6000, "Can't elevate",
+                "Could not locate bt-autoconnect.exe to relaunch as administrator.", ToolTipIcon.Error);
+            return;
+        }
+
+        string mac = Bluetooth.FormatAddress(dev.Address);
+        string name = dev.Name;
+        try
+        {
+            var psi = new ProcessStartInfo(exe, $"-ForceRemove -Target {mac} -Force")
+            {
+                UseShellExecute = true,
+                Verb            = "runas",
+            };
+            var proc = Process.Start(psi);
+
+            Task.Run(() =>
+            {
+                try { proc?.WaitForExit(60000); } catch { }
+                bool gone;
+                try { gone = !Bluetooth.EnumerateDevices().Any(d => d.Address == dev.Address); }
+                catch { gone = false; }
+
+                void Done() => _tray.ShowBalloonTip(
+                    gone ? 4000 : 6000,
+                    gone ? "Device removed" : "Remove failed",
+                    gone ? $"'{name}' has been unpaired." : $"'{name}' could not be removed. A reboot may finish it off.",
+                    gone ? ToolTipIcon.Info : ToolTipIcon.Warning);
+
+                if (_ui != null) _ui.Post(_ => { Done(); UpdateStatus(); }, null); else Done();
+            });
+        }
+        catch (Exception ex)
+        {
+            // Most commonly: user dismissed the UAC prompt (Win32Exception 1223).
+            _tray.ShowBalloonTip(4000, "Cancelled", $"Elevated removal was not started: {ex.Message}", ToolTipIcon.Info);
+        }
+    }
+
+    /// <summary>Path to our own .exe, for relaunching elevated. Null if unresolved (e.g. `dotnet run`).</summary>
+    private static string? ResolveExePath()
+    {
+        var p = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(p) && p.EndsWith("bt-autoconnect.exe", StringComparison.OrdinalIgnoreCase))
+            return p;
+        var cand = Path.Combine(AppContext.BaseDirectory, "bt-autoconnect.exe");
+        return File.Exists(cand) ? cand : null;
     }
 
     private void OpenBluetoothSettings()

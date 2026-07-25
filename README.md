@@ -61,7 +61,7 @@ The output lands in `src/bin/Release/net8.0-windows10.0.19041.0/win-x64/publish/
 Left- or right-click the tray icon (blue when a watched device is connected, grey when idle):
 
 - **Pair a new device…** — opens Windows' native "Add a device" flow.
-- **Paired devices** — every paired device, each with **Auto-connect** (toggle whether the watchdog keeps it connected) and **Connect now**.
+- **Paired devices** — every paired device, each with **Auto-connect** (toggle whether the watchdog keeps it connected), **Connect now**, and **Force-remove (unpair)** for when Windows' own "Remove device" fails.
 - **Settings…** — scan interval, reconnect window, and an auto-connect / kind grid for every device.
 - **Start with Windows** — launches at login (per-user, no admin).
 - **Open log / config**, and **Exit**.
@@ -105,7 +105,10 @@ The tray is the default, but the same exe runs headless and offers diagnostics. 
 | `-CleanupLE [-Force]` | remove stray `LE-…` shadow pairings |
 | `-ForceRemove -Target "<name\|MAC>" [-Force]` | force-unpair a stuck device |
 
-**Force-removing a stuck device.** When Windows' **Remove device** fails with *"Remove failed"*, `-ForceRemove` escalates until the pairing is gone: disconnect → `BluetoothRemoveDevice` → restart `bthserv`/`DeviceAssociationService` → remove the PnP node(s) for that MAC via `pnputil` → delete the stale registry pairing key. The first two steps work unprivileged; the forceful ones need an elevated console (the tool detects elevation and reports what it applied).
+**Force-removing a stuck device.** When Windows' **Remove device** fails with *"Remove failed"*, force-remove escalates until the pairing is gone: disconnect → `BluetoothRemoveDevice` → restart `bthserv`/`DeviceAssociationService` → remove the PnP node(s) for that MAC via `pnputil` → delete the stale registry pairing key. The first two steps work unprivileged; the forceful ones need admin. You can run it two ways:
+
+- **From the tray** — **Paired devices → *device* → Force-remove (unpair)**. It tries the unprivileged steps first and only asks for admin (a UAC prompt) if those aren't enough.
+- **From the command line** — `-ForceRemove -Target "<name|MAC>" [-Force]` (run the console elevated for the full escalation).
 
 ---
 
