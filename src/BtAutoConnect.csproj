@@ -19,8 +19,7 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
 
     <!--
-      WinForms is enabled so we can add a NotifyIcon in Phase 3c without
-      changing the csproj. Phase 3a doesn't actually use any WinForms types.
+      WinForms is enabled for the tray icon (NotifyIcon) and the settings dialog.
     -->
     <UseWindowsForms>true</UseWindowsForms>
 

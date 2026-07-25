@@ -4,7 +4,7 @@ using System.Runtime.Versioning;
 namespace BtAutoConnect;
 
 /// <summary>
-/// Phase 3b: inline Bluetooth-audio connect, no external ToothTrayCli needed.
+/// Inline Bluetooth-audio connect, no external ToothTrayCli needed.
 ///
 /// Connecting a paired A2DP/HFP device on Windows is not a Bluetooth-API call —
 /// it goes through the Core Audio stack. This mirrors what the Settings

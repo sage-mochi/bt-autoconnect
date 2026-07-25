@@ -6,7 +6,7 @@ using System.Windows.Forms;
 namespace BtAutoConnect;
 
 /// <summary>
-/// Phase 3d: a small settings dialog over the same <see cref="Config"/> the tray
+/// A small settings dialog over the same <see cref="Config"/> the tray
 /// menu edits. Lets the user set the scan interval and reconnect window, and
 /// manage auto-connect / kind for every device in one grid (paired devices plus
 /// any configured-but-not-currently-paired entries). On OK it writes the choices

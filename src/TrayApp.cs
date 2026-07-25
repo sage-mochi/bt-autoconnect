@@ -5,7 +5,7 @@ using System.Windows.Forms;
 namespace BtAutoConnect;
 
 /// <summary>
-/// The Phase 3c tray application. Wraps the existing <see cref="Watchdog"/> in a
+/// The tray application. Wraps the existing <see cref="Watchdog"/> in a
 /// system-tray UI:
 ///   * pair a new device (hands off to the Windows "Add device" flow),
 ///   * toggle auto-connect per paired device (persisted to config.json),

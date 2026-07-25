@@ -4,9 +4,9 @@ using System.Runtime.Versioning;
 namespace BtAutoConnect;
 
 /// <summary>
-/// Audio connect via ToothTrayCli. This is a temporary Phase 3a shim --
-/// Phase 3b will replace this with inline IMMDeviceEnumerator + IKsControl
-/// COM interop so the program is fully self-contained.
+/// Audio connect via ToothTrayCli. Legacy fallback only: the inline Core Audio
+/// path (see AudioConnectCom) is primary, and this is used just when the inline
+/// path can't locate the endpoint and a ToothTrayCli binary happens to be present.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class AudioConnect

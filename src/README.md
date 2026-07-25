@@ -1,6 +1,9 @@
-# bt-autoconnect (Phase 3 — C# tray app)
+# bt-autoconnect — build & technical reference
 
-The C# tray app, distributable as a single `.exe` — with a **system-tray UI**, a **settings dialog**, and **inline audio connect** (Core Audio / `IKsControl`) so it needs no external tools.
+Developer-facing notes for the C# tray app (build, publish, CLI, config, internals).
+For the user-facing overview and downloads, see the [repo README](../README.md).
+
+The app is distributable as a single `.exe` — with a **system-tray UI**, a **settings dialog**, and **inline audio connect** (Core Audio / `IKsControl`) so it needs no external tools.
 
 ## Tray app
 
@@ -10,7 +13,7 @@ Launching the exe with no arguments starts it as a tray icon (blue when a watche
 - **Paired devices** — every paired device, each with:
   - **Auto-connect** — toggle whether the watchdog keeps this device connected. Persisted to `config.json` immediately; the background watchdog restarts so it takes effect at once.
   - **Connect now / Reconnect now** — one-off connect on demand (audio via inline Core Audio / `IKsControl`, HID via the Win32 primitive).
-- **Settings…** — dialog to set the scan interval and reconnect window, and manage auto-connect / kind for every device in a grid (see Phase 3d).
+- **Settings…** — dialog to set the scan interval and reconnect window, and manage auto-connect / kind for every device in a grid.
 - **Start with Windows** — registers/removes an HKCU `Run` entry (per-user, no admin).
 - **Open log** / **Open config file** — jump to the log and to `config.json`.
 - **Exit**.
@@ -33,7 +36,7 @@ Then from inside `src/`:
 dotnet build
 ```
 
-That produces `bin\Debug\net8.0-windows\bt-autoconnect.exe`.
+That produces `bin\Debug\net8.0-windows10.0.19041.0\bt-autoconnect.exe`.
 
 ## Run (development)
 
@@ -67,7 +70,7 @@ dotnet publish -c Release -r win-x64 --self-contained true ^
   -p:DebugType=embedded
 ```
 
-Output: `bin\Release\net8.0-windows\win-x64\publish\bt-autoconnect.exe` (~50 MB, runs on any Windows 10/11 with no .NET installed).
+Output: `bin\Release\net8.0-windows10.0.19041.0\win-x64\publish\bt-autoconnect.exe` (~180 MB, runs on any Windows 10/11 with no .NET installed). For a smaller build that relies on an installed .NET 8 Desktop Runtime, use `--self-contained false` (~25 MB).
 
 ## What's here
 
@@ -75,10 +78,10 @@ Output: `bin\Release\net8.0-windows\win-x64\publish\bt-autoconnect.exe` (~50 MB,
 - `Program.cs` — entry, CLI arg parsing
 - `Config.cs` — JSON config model + loader + save/watch-list helpers
 - `Bluetooth.cs` — Win32 BT P/Invokes (enumerate, HID connect, remove, force-remove PnP-node discovery)
-- `AudioConnectCom.cs` — **inline** Core Audio / `IKsControl` reconnect (Phase 3b; no external dependency)
+- `AudioConnectCom.cs` — **inline** Core Audio / `IKsControl` reconnect (no external dependency)
 - `AudioConnect.cs` — legacy ToothTrayCli shell-out, now only an optional fallback
 - `Watchdog.cs` — main loop, per-device state machine
-- `TrayApp.cs`, `SettingsForm.cs`, `IconFactory.cs`, `Autostart.cs`, `ConsoleHelper.cs` — tray UI + settings dialog (Phase 3c/3d)
+- `TrayApp.cs`, `SettingsForm.cs`, `IconFactory.cs`, `Autostart.cs`, `ConsoleHelper.cs` — tray UI + settings dialog
 - `Log.cs` — rotating file logger
 
 ## Config
@@ -103,15 +106,14 @@ Schema:
 
 `kind` is `audio` (default) or `hid`. `address` is optional; if set, matching is by address first, then name. Audio devices are connected inline via the Core Audio stack — **no ToothTrayCli needed**. `toothTrayCliPath` (and a `tools/` folder or `PATH`) is honored only as a fallback if the inline path can't locate the endpoint. You normally never touch the file by hand: the tray menu and **Settings…** dialog write it for you.
 
-## Phase 3 status
+## Status
 
-- **3a** — console port. Done.
-- **3b** — inline `IMMDeviceEnumerator` → topology walk → `IKsControl` + `KSPROPERTY_ONESHOT_RECONNECT` (`KSPROPSETID_BtAudio`). **Done** — ToothTrayCli is now only an optional fallback. Verify with `-TestAudio -Target "<name|MAC>"`.
-- **3c** — tray icon (NotifyIcon): pair a new device, per-device auto-connect toggle, connect-on-demand, start-with-Windows. **Done.**
-- **3d** — settings dialog (scan interval, reconnect window, per-device auto-connect + kind grid). **Done.** Open standalone with `-Settings`.
-- **3e** — installer / distribution polish. *(pending)*
+Feature-complete for everyday use — inline audio + HID auto-connect, drop-recovery
+watchdog, tray UI, settings dialog, and start-with-Windows all work. Remaining polish:
+a signed installer / distribution. Handy diagnostics: `-TestAudio -Target "<name|MAC>"`
+exercises the inline audio reconnect, and `-Settings` opens the settings dialog standalone.
 
-### How audio connect works (Phase 3b)
+## How audio connect works
 
 Connecting a paired Bluetooth audio device isn't a Bluetooth-API call — it goes through Core Audio. `AudioConnectCom` enumerates render endpoints (including disconnected ones), walks each endpoint's device topology across its connector to the `bth`/`bthhf` kernel-streaming node, activates `IKsControl` on that node, and sends a `KSPROPERTY_ONESHOT_RECONNECT` request. The target is matched by MAC (found in the KS node's device-instance id — always known from the live paired device) with the endpoint friendly-name as a fallback. Constants were verified against the Windows SDK `ksmedia.h` / `devicetopology.h` and the ToothTray source. Every COM interface method is `[PreserveSig]` so the declared `int` return is the raw HRESULT.
 
@@ -123,7 +125,7 @@ MIT — see [`../LICENSE`](../LICENSE).
 
 ## Acknowledgements
 
-The inline audio-connect path (Phase 3b) uses the Core Audio / `IKsControl` +
+The inline audio-connect path uses the Core Audio / `IKsControl` +
 `KSPROPERTY_ONESHOT_RECONNECT` technique demonstrated by
 [m2jean/ToothTray](https://github.com/m2jean/ToothTray) (MIT). The relevant
 constants were verified against the Windows SDK (`ksmedia.h`,

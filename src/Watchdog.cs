@@ -170,7 +170,7 @@ public sealed class Watchdog
     // --- Audio path ----------------------------------------------------------
 
     /// <summary>
-    /// Phase 3b: try the inline Core Audio (IKsControl) reconnect first. Only if
+    /// Try the inline Core Audio (IKsControl) reconnect first. Only if
     /// the audio endpoint can't be located do we fall back to ToothTrayCli (when
     /// present). The MAC comes from the live paired device, so matching is exact.
     /// </summary>

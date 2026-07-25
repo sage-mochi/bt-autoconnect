@@ -24,7 +24,7 @@ public static class Program
         if (opts.TestAudio)    { ConsoleHelper.EnsureConsole(); return RunTestAudio(opts.Target); }
 
         // Tray is the default UI. -Console / -Background run the headless watchdog
-        // (the Phase 2a scheduled-task path); -Tray forces the UI explicitly.
+        // (the scheduled-task / background path); -Tray forces the UI explicitly.
         bool trayMode = opts.Tray || (!opts.ConsoleMode && !opts.Background);
 
         // --- load config ---------------------------------------------------------
@@ -199,7 +199,7 @@ public static class Program
 
     // -------------------------------------------------------------------------
     // -TestAudio : one-shot inline Core Audio reconnect for a single device,
-    // for verifying the Phase 3b COM path without the tray/watchdog.
+    // for verifying the inline COM audio path without the tray/watchdog.
     // -------------------------------------------------------------------------
 
     private static int RunTestAudio(string? target)
