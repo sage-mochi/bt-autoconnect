@@ -1,4 +1,8 @@
-# bt-autoconnect
+<p align="center">
+  <img src="assets/icon.png" width="120" alt="bt-autoconnect icon">
+</p>
+
+<h1 align="center">bt-autoconnect</h1>
 
 **Auto-connect your Bluetooth earbuds (and controllers) on Windows — the "open the case and it just works" behavior macOS has, that Windows doesn't.**
 
