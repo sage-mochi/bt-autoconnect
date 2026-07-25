@@ -33,21 +33,26 @@ Run the exe → it appears in your system tray. That's it. There's nothing to in
 
 ### Build from source
 
-Needs the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). From [`src/`](src/):
+Needs the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (`winget install Microsoft.DotNet.SDK.8`). From [`src/`](src/):
 
 ```
 dotnet build                 # debug build
 dotnet run                   # run the tray app
 ```
 
-Single-file, self-contained publish:
+Single-file publish:
 
 ```
+# Self-contained (~180 MB, needs no .NET on the target machine)
 dotnet publish -c Release -r win-x64 --self-contained true ^
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded
+
+# Framework-dependent (~25 MB, needs the .NET 8 Desktop Runtime installed)
+dotnet publish -c Release -r win-x64 --self-contained false ^
+  -p:PublishSingleFile=true -p:DebugType=embedded
 ```
 
-See [`src/README.md`](src/README.md) for the full build/publish/usage reference.
+The output lands in `src/bin/Release/net8.0-windows10.0.19041.0/win-x64/publish/`.
 
 ---
 
@@ -65,6 +70,45 @@ Turn on **Auto-connect** for your earbuds, enable **Start with Windows**, and yo
 
 ---
 
+## Configuration
+
+The tray menu and **Settings…** dialog write `config.json` for you, so you normally never edit it by hand. If you want to, it lives next to the exe (or pass `-ConfigPath`):
+
+```json
+{
+  "devices": [
+    { "name": "Bose QC Ultra Earbuds" },
+    { "name": "Soundcore Space A40", "kind": "audio" },
+    { "name": "AirPods Pro", "address": "AA:BB:CC:DD:EE:FF" },
+    { "name": "Wireless Controller", "kind": "hid" }
+  ],
+  "scanIntervalSeconds": 5,
+  "dropRetryWindowSeconds": 8
+}
+```
+
+A device is auto-connected exactly when it has an entry in `devices`. `kind` is `audio` (default) or `hid`. `address` is optional; when set, matching is by address first, then name (so it survives renames).
+
+---
+
+## Command line
+
+The tray is the default, but the same exe runs headless and offers diagnostics. Run these from a terminal — output attaches to the console you launched from:
+
+| Command | What it does |
+|---------|--------------|
+| `bt-autoconnect.exe` | run the tray app (default) |
+| `-Console` / `-Background` | run the watchdog in the console / fully headless |
+| `-Settings` | open the settings dialog standalone |
+| `-ListDevices` | print paired devices + connection state |
+| `-TestAudio -Target "<name\|MAC>"` | test the inline audio reconnect for one device |
+| `-CleanupLE [-Force]` | remove stray `LE-…` shadow pairings |
+| `-ForceRemove -Target "<name\|MAC>" [-Force]` | force-unpair a stuck device |
+
+**Force-removing a stuck device.** When Windows' **Remove device** fails with *"Remove failed"*, `-ForceRemove` escalates until the pairing is gone: disconnect → `BluetoothRemoveDevice` → restart `bthserv`/`DeviceAssociationService` → remove the PnP node(s) for that MAC via `pnputil` → delete the stale registry pairing key. The first two steps work unprivileged; the forceful ones need an elevated console (the tool detects elevation and reports what it applied).
+
+---
+
 ## How it works
 
 Two API surfaces, because Bluetooth audio connect on Windows isn't a Bluetooth-API call:
@@ -75,9 +119,7 @@ Two API surfaces, because Bluetooth audio connect on Windows isn't a Bluetooth-A
 
 A per-device watchdog polls on an interval, connects anything enabled-but-disconnected, and retries devices that drop right after connecting.
 
-The app also includes fixes for common Windows 10 "paired but won't connect" states: `-CleanupLE` removes stray `LE-…` shadow pairings, and `-ForceRemove` escalates through service restarts, PnP-node removal, and registry cleanup for devices the Settings "Remove" button can't shift.
-
-Deeper technical notes (COM interop specifics, verified constants, CLI reference) live in [`src/README.md`](src/README.md).
+The audio path matches the target by MAC (found in the KS node's device-instance id) with a friendly-name fallback, and every hand-declared COM interface method is `[PreserveSig]` so the raw HRESULT is respected. The `KSPROPSETID_BtAudio` / `KSPROPERTY_ONESHOT_RECONNECT` constants were verified against the Windows SDK (`ksmedia.h`, `devicetopology.h`) and the [ToothTray](https://github.com/m2jean/ToothTray) source. The source in [`src/`](src/) is organized one concern per file (`AudioConnectCom.cs`, `Watchdog.cs`, `TrayApp.cs`, `Bluetooth.cs`, …).
 
 ---
 
