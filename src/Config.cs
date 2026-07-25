@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace BtAutoConnect;
 
 /// <summary>
-/// Strongly-typed JSON config model matching phase1/config.json schema.
+/// Strongly-typed JSON config model for config.json.
 /// </summary>
 public sealed class Config
 {

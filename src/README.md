@@ -1,6 +1,6 @@
 # bt-autoconnect (Phase 3 — C# tray app)
 
-This is the C# rewrite of the PowerShell prototype in `../phase1/`. Same watchdog behavior, same config format, distributable as a single `.exe` — with a **system-tray UI** (Phase 3c), a **settings dialog** (Phase 3d), and **inline audio connect** so it no longer needs ToothTrayCli (Phase 3b).
+The C# tray app, distributable as a single `.exe` — with a **system-tray UI**, a **settings dialog**, and **inline audio connect** (Core Audio / `IKsControl`) so it needs no external tools.
 
 ## Tray app
 
@@ -27,7 +27,7 @@ You need the .NET 8 SDK (one-time install):
 winget install Microsoft.DotNet.SDK.8
 ```
 
-Then from inside `phase3/`:
+Then from inside `src/`:
 
 ```
 dotnet build
@@ -83,7 +83,7 @@ Output: `bin\Release\net8.0-windows\win-x64\publish\bt-autoconnect.exe` (~50 MB,
 
 ## Config
 
-Same `config.json` schema as Phase 1. Place a `config.json` next to the `.exe`, or pass `-ConfigPath`. If absent, the program writes an example and exits.
+Place a `config.json` next to the `.exe`, or pass `-ConfigPath`. If absent, the program writes an example and exits.
 
 Schema:
 

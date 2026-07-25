@@ -33,7 +33,7 @@ Run the exe → it appears in your system tray. That's it. There's nothing to in
 
 ### Build from source
 
-Needs the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). From [`phase3/`](phase3/):
+Needs the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). From [`src/`](src/):
 
 ```
 dotnet build                 # debug build
@@ -47,7 +47,7 @@ dotnet publish -c Release -r win-x64 --self-contained true ^
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded
 ```
 
-See [`phase3/README.md`](phase3/README.md) for the full build/publish/usage reference.
+See [`src/README.md`](src/README.md) for the full build/publish/usage reference.
 
 ---
 
@@ -77,7 +77,7 @@ A per-device watchdog polls on an interval, connects anything enabled-but-discon
 
 The app also includes fixes for common Windows 10 "paired but won't connect" states: `-CleanupLE` removes stray `LE-…` shadow pairings, and `-ForceRemove` escalates through service restarts, PnP-node removal, and registry cleanup for devices the Settings "Remove" button can't shift.
 
-Deeper technical notes (COM interop specifics, verified constants, CLI reference) live in [`phase3/README.md`](phase3/README.md).
+Deeper technical notes (COM interop specifics, verified constants, CLI reference) live in [`src/README.md`](src/README.md).
 
 ---
 
