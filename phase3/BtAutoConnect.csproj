@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      WinExe = Windows subsystem: launching the tray from Explorer never flashes
+      a console window. The diagnostic CLI modes still print by attaching to the
+      parent terminal at runtime (see ConsoleHelper).
+    -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>BtAutoConnect</RootNamespace>
+    <AssemblyName>bt-autoconnect</AssemblyName>
+
+    <!--
+      WinForms is enabled so we can add a NotifyIcon in Phase 3c without
+      changing the csproj. Phase 3a doesn't actually use any WinForms types.
+    -->
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <!--
+      We P/Invoke into Bthprops.cpl which has no managed surface. The Windows
+      target framework gives us the necessary platform attributes; the runtime
+      identifier defaults to win-x64 at publish time.
+    -->
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+
+    <Version>0.3.0</Version>
+    <Authors>sage-mochi</Authors>
+    <Description>Auto-connect paired Bluetooth audio and HID devices on Windows.</Description>
+  </PropertyGroup>
+
+</Project>

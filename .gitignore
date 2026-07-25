@@ -1,0 +1,22 @@
+# --- .NET build output ---
+bin/
+obj/
+*.user
+.vs/
+
+# --- Local runtime config (use config.example.json as a template) ---
+config.json
+
+# --- Third-party tool binaries (user-downloaded; audio connect is inline now) ---
+# 'tools/' has no leading/internal slash, so it matches a tools dir at any depth.
+tools/
+
+# --- Local-only working docs (design notes / diagnosis; not part of the app) ---
+/local-docs/
+
+# --- Logs ---
+*.log
+
+# --- OS / editor cruft ---
+Thumbs.db
+.DS_Store
