@@ -7,10 +7,11 @@ namespace BtAutoConnect;
 
 /// <summary>
 /// A small settings dialog over the same <see cref="Config"/> the tray
-/// menu edits. Lets the user set the scan interval and reconnect window, and
-/// manage auto-connect / kind for every device in one grid (paired devices plus
-/// any configured-but-not-currently-paired entries). On OK it writes the choices
-/// back into the passed-in Config; the caller persists and restarts the watchdog.
+/// menu edits. Lets the user set the scan interval and reconnect window, toggle
+/// start-with-Windows, and manage auto-connect / kind for every device in one grid
+/// (paired devices plus any configured-but-not-currently-paired entries). On OK it
+/// writes the choices back into the passed-in Config -- the caller persists those and
+/// restarts the watchdog -- and applies the autostart setting directly (registry).
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class SettingsForm : Form
@@ -21,6 +22,7 @@ public sealed class SettingsForm : Form
     private readonly NumericUpDown _scan  = new();
     private readonly NumericUpDown _drop  = new();
     private readonly DataGridView  _grid  = new();
+    private readonly CheckBox      _autostart = new();
 
     public SettingsForm(Config config)
     {
@@ -28,8 +30,8 @@ public sealed class SettingsForm : Form
 
         Text            = "bt-autoconnect — Settings";
         StartPosition   = FormStartPosition.CenterScreen;
-        MinimumSize     = new Size(600, 420);
-        Size            = new Size(640, 460);
+        MinimumSize     = new Size(600, 450);
+        Size            = new Size(640, 490);
         ShowInTaskbar   = true;
         Icon            = IconFactory.Create(connected: false);
         Font            = SystemFonts.MessageBoxFont ?? SystemFonts.DefaultFont;
@@ -54,8 +56,8 @@ public sealed class SettingsForm : Form
         {
             Dock        = DockStyle.Top,
             ColumnCount = 4,
-            RowCount    = 1,
-            Height      = 44,
+            RowCount    = 2,
+            Height      = 74,
             Padding     = new Padding(10, 8, 10, 4),
             AutoSize    = false,
         };
@@ -68,6 +70,36 @@ public sealed class SettingsForm : Form
         panel.Controls.Add(_scan, 1, 0);
         panel.Controls.Add(new Label { Text = "Reconnect window (s):", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(20, 6, 6, 0) }, 2, 0);
         panel.Controls.Add(_drop, 3, 0);
+
+        _autostart.Text     = "Start with Windows";
+        _autostart.AutoSize = true;
+        _autostart.Anchor   = AnchorStyles.Left;
+        _autostart.Margin   = new Padding(0, 8, 0, 0);
+        _autostart.Checked  = Autostart.IsEnabled();
+        _autostart.Enabled  = Autostart.Available;
+
+        var tip = new ToolTip();
+        tip.SetToolTip(_autostart, Autostart.Available
+            ? $"Launches at login (per-user, no admin).\nWill register:\n{Autostart.TargetPath}"
+            : "Unavailable: no launchable .exe path for this process.");
+
+        // Warn once, at the moment of enabling, if we'd register a build-output
+        // path -- a rebuild or clean would delete it and silently break startup.
+        _autostart.CheckedChanged += (_, _) =>
+        {
+            if (!_autostart.Checked || !Autostart.IsRunningFromBuildOutput) return;
+            MessageBox.Show(this,
+                "This copy is running from a build-output folder:\n\n" +
+                Autostart.TargetPath + "\n\n" +
+                "Rebuilding or cleaning the project deletes that folder, which would " +
+                "silently break startup. Consider publishing a copy somewhere stable " +
+                "(e.g. %LOCALAPPDATA%\\Programs\\bt-autoconnect) and enabling autostart from there.",
+                "Start with Windows",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        };
+
+        panel.Controls.Add(_autostart, 0, 1);
+        panel.SetColumnSpan(_autostart, 4);
         return panel;
     }
 
@@ -190,6 +222,13 @@ public sealed class SettingsForm : Form
     {
         _config.ScanIntervalSeconds    = (int)_scan.Value;
         _config.DropRetryWindowSeconds = (int)_drop.Value;
+
+        // Autostart lives in the registry, not the config file, so apply it here.
+        if (Autostart.Available && _autostart.Checked != Autostart.IsEnabled())
+        {
+            if (_autostart.Checked) Autostart.Enable();
+            else                    Autostart.Disable();
+        }
 
         var devices = new List<DeviceConfig>();
         foreach (DataGridViewRow row in _grid.Rows)
